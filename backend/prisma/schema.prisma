@@ -1,0 +1,125 @@
+// Sitara — Database Schema
+// Currently using SQLite for development. To switch to PostgreSQL:
+//   1. Change provider to "postgresql"
+//   2. Update DATABASE_URL in .env to your PostgreSQL connection string
+//   3. Run: npx prisma migrate dev
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Restaurant {
+  id             String   @id @default(uuid())
+  name           String
+  location       String
+  googlePlaceId  String?  @map("google_place_id")
+  gatingEnabled  Boolean  @default(false) @map("gating_enabled")
+  plan           String   @default("starter") // starter | growth | pro
+  whatsappNumber String?  @map("whatsapp_number")
+  voiceSetting   String   @default("friendly") @map("voice_setting") // formal | casual | friendly
+  recoveryOffer  String?  @map("recovery_offer") // e.g. "20% off your next visit"
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  users     User[]
+  customers Customer[]
+  reviews   Review[]
+  surveys   Survey[]
+  alerts    Alert[]
+
+  @@map("restaurants")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  email        String
+  password     String
+  name         String
+  role         String   @default("owner") // owner | manager
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([email, restaurantId])
+  @@map("users")
+}
+
+model Customer {
+  id           String    @id @default(uuid())
+  restaurantId String    @map("restaurant_id")
+  phone        String
+  name         String?
+  consentAt    DateTime? @map("consent_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  surveys    Survey[]
+
+  @@unique([restaurantId, phone])
+  @@map("customers")
+}
+
+model Review {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  source       String   // google | swiggy | zomato
+  externalId   String?  @map("external_id") // ID from the source platform for dedup
+  author       String
+  rating       Int      // 1-5
+  text         String?
+  language     String   @default("en") // en | hi | hinglish
+  sentiment    String?  // positive | neutral | negative
+  postedAt     DateTime @map("posted_at")
+  replied      Boolean  @default(false)
+  replyText    String?  @map("reply_text")
+  repliedAt    DateTime? @map("replied_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([source, externalId])
+  @@map("reviews")
+}
+
+model Survey {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  customerId   String   @map("customer_id")
+  channel      String   // pos | qr
+  rating       Int?     // 1-5, null until customer responds
+  feedback     String?  // reason selected if unhappy
+  status       String   @default("sent") // sent | rated | routed_public | routed_private | completed
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  alerts     Alert[]
+
+  @@map("surveys")
+}
+
+model Alert {
+  id           String   @id @default(uuid())
+  restaurantId String   @map("restaurant_id")
+  surveyId     String?  @map("survey_id")
+  rating       Int
+  reason       String?
+  tableOrSource String? @map("table_or_source")
+  customerPhone String? @map("customer_phone")
+  status       String   @default("open") // open | resolved
+  resolveNote  String?  @map("resolve_note")
+  createdAt    DateTime @default(now()) @map("created_at")
+  resolvedAt   DateTime? @map("resolved_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  survey     Survey?    @relation(fields: [surveyId], references: [id], onDelete: SetNull)
+
+  @@map("alerts")
+}

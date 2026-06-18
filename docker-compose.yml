@@ -1,0 +1,27 @@
+# Sitara — Docker Compose
+# Run: docker-compose up -d
+# This is for when you install Docker. Phase 1 uses SQLite locally instead.
+# To switch: update backend/.env DATABASE_URL and prisma schema provider.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sitara
+      POSTGRES_PASSWORD: sitara_dev_password
+      POSTGRES_DB: sitara
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:

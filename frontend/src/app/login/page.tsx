@@ -20,7 +20,7 @@ export default function LoginPage() {
 
     try {
       const result = await api.auth.login(email, password);
-      localStorage.setItem('user', JSON.stringify(result.user));
+      localStorage.setItem('user', JSON.stringify({ ...result.user, subscribed: true }));
       localStorage.setItem('token', result.access_token);
       router.push('/dashboard');
     } catch (err) {

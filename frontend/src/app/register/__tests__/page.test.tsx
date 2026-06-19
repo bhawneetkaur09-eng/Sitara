@@ -86,7 +86,7 @@ describe('RegisterPage', () => {
         restaurantLocation: 'Bangalore',
       });
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith('token', 'tok456');
-      expect(mockPush).toHaveBeenCalledWith('/dashboard');
+      expect(mockPush).toHaveBeenCalledWith('/onboarding');
     });
   });
 

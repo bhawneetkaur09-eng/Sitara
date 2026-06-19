@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { initTestApp, createTestUser, TestContext, TestUser } from './setup';
+import { initTestApp, TestContext } from './setup';
 import { INestApplication } from '@nestjs/common';
 
 describe('Auth Protection E2E', () => {

@@ -66,9 +66,7 @@ describe('Alerts E2E', () => {
       .expect(201);
 
     expect(res.body.status).toBe('resolved');
-    expect(res.body.resolveNote).toBe(
-      'Spoke with customer, offered discount',
-    );
+    expect(res.body.resolveNote).toBe('Spoke with customer, offered discount');
     expect(res.body.resolvedAt).toBeDefined();
   });
 

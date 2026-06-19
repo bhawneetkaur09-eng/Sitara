@@ -22,9 +22,7 @@ export async function initTestApp(): Promise<TestContext> {
 
   const app = moduleFixture.createNestApplication();
   app.use(cookieParser());
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, transform: true }),
-  );
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init();
 
   const prisma = app.get(PrismaService);
@@ -39,9 +37,7 @@ export async function initTestApp(): Promise<TestContext> {
   return { app, prisma };
 }
 
-export async function createTestUser(
-  app: INestApplication,
-): Promise<TestUser> {
+export async function createTestUser(app: INestApplication): Promise<TestUser> {
   const res = await request(app.getHttpServer())
     .post('/api/auth/register')
     .send({

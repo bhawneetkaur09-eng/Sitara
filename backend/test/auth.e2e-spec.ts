@@ -101,5 +101,4 @@ describe('Auth E2E', () => {
       await request(app.getHttpServer()).get('/api/auth/me').expect(401);
     });
   });
-
 });

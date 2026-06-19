@@ -102,9 +102,7 @@ describe('Restaurant E2E', () => {
         .expect(201);
 
       expect(res.body.access_token).toBeDefined();
-      expect(res.body.user.restaurant.location).toBe(
-        'Indiranagar, Bangalore',
-      );
+      expect(res.body.user.restaurant.location).toBe('Indiranagar, Bangalore');
 
       // Switch back
       await request(app.getHttpServer())

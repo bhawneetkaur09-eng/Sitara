@@ -63,7 +63,7 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('test@test.com', 'password123');
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith('token', 'tok123');
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('user', JSON.stringify({ ...mockUser, subscribed: true }));
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('user', JSON.stringify(mockUser));
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
   });

@@ -60,11 +60,6 @@ export default function DashboardLayout({
       router.push('/login');
       return;
     }
-    const userData = user as User & { subscribed?: boolean };
-    if (!userData.subscribed) {
-      router.push('/onboarding');
-      return;
-    }
     api.restaurant.listLocations().then(setLocations).catch(console.error);
   }, [user, router]);
 

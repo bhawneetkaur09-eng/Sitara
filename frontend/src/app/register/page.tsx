@@ -36,7 +36,7 @@ export default function RegisterPage() {
       const result = await api.auth.register(form);
       localStorage.setItem('user', JSON.stringify(result.user));
       localStorage.setItem('token', result.access_token);
-      router.push('/onboarding');
+      router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {

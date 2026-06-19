@@ -82,7 +82,7 @@ export default function SurveysPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   async function handleSend() {
@@ -95,8 +95,8 @@ export default function SurveysPage() {
       setPhone('');
       setCustomerName('');
       load();
-    } catch (err: any) {
-      alert(err.message || 'Failed to send survey');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to send survey');
     } finally {
       setSending(false);
     }
@@ -115,8 +115,8 @@ export default function SurveysPage() {
       setSimulateRating(0);
       setSimulateFeedback('');
       load();
-    } catch (err: any) {
-      alert(err.message || 'Failed to simulate rating');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to simulate rating');
     } finally {
       setSimulating(false);
     }

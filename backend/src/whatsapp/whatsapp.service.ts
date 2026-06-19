@@ -15,6 +15,27 @@ export interface WhatsAppMessage {
   timestamp: number;
 }
 
+export interface WebhookBody {
+  entry?: Array<{
+    changes?: Array<{
+      value?: {
+        messages?: Array<{
+          from: string;
+          type: string;
+          timestamp: string;
+          text?: { body: string };
+          interactive?: { button_reply?: { title: string; id: string } };
+          button?: { reply?: { title: string; id: string } };
+        }>;
+      };
+    }>;
+  }>;
+}
+
+interface MetaApiResponse {
+  messages?: Array<{ id: string }>;
+}
+
 @Injectable()
 export class WhatsAppService {
   private readonly logger = new Logger(WhatsAppService.name);
@@ -31,7 +52,9 @@ export class WhatsAppService {
     }
   }
 
-  async sendSurveyTemplate(payload: SendTemplatePayload): Promise<{ messageId: string; simulated: boolean }> {
+  async sendSurveyTemplate(
+    payload: SendTemplatePayload,
+  ): Promise<{ messageId: string; simulated: boolean }> {
     if (this.isSimulated) {
       const messageId = `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       this.logger.log(
@@ -43,17 +66,22 @@ export class WhatsAppService {
     return this.sendViaMetaCloudApi(payload);
   }
 
-  async sendTextMessage(to: string, text: string): Promise<{ messageId: string; simulated: boolean }> {
+  async sendTextMessage(
+    to: string,
+    text: string,
+  ): Promise<{ messageId: string; simulated: boolean }> {
     if (this.isSimulated) {
       const messageId = `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      this.logger.log(`[SIMULATED] Text message to ${to}: "${text}" — messageId: ${messageId}`);
+      this.logger.log(
+        `[SIMULATED] Text message to ${to}: "${text}" — messageId: ${messageId}`,
+      );
       return { messageId, simulated: true };
     }
 
     return this.sendTextViaMetaCloudApi(to, text);
   }
 
-  parseWebhookPayload(body: any): WhatsAppMessage | null {
+  parseWebhookPayload(body: WebhookBody): WhatsAppMessage | null {
     try {
       const entry = body?.entry?.[0];
       const change = entry?.changes?.[0];
@@ -69,7 +97,8 @@ export class WhatsAppService {
       if (message.type === 'text') {
         parsed.text = message.text?.body;
       } else if (message.type === 'interactive' || message.type === 'button') {
-        const reply = message.interactive?.button_reply || message.button?.reply;
+        const reply =
+          message.interactive?.button_reply || message.button?.reply;
         if (reply) {
           parsed.button = { text: reply.title, payload: reply.id };
         }
@@ -83,11 +112,14 @@ export class WhatsAppService {
   }
 
   verifyWebhookToken(token: string): boolean {
-    const verifyToken = this.config.get<string>('WHATSAPP_VERIFY_TOKEN') || 'sitara-dev-verify';
+    const verifyToken =
+      this.config.get<string>('WHATSAPP_VERIFY_TOKEN') || 'sitara-dev-verify';
     return token === verifyToken;
   }
 
-  private async sendViaMetaCloudApi(payload: SendTemplatePayload): Promise<{ messageId: string; simulated: boolean }> {
+  private async sendViaMetaCloudApi(
+    payload: SendTemplatePayload,
+  ): Promise<{ messageId: string; simulated: boolean }> {
     const token = this.config.get<string>('WHATSAPP_TOKEN');
     const phoneNumberId = this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID');
 
@@ -117,11 +149,14 @@ export class WhatsAppService {
       },
     );
 
-    const data = await response.json();
+    const data = (await response.json()) as MetaApiResponse;
     return { messageId: data.messages?.[0]?.id || 'unknown', simulated: false };
   }
 
-  private async sendTextViaMetaCloudApi(to: string, text: string): Promise<{ messageId: string; simulated: boolean }> {
+  private async sendTextViaMetaCloudApi(
+    to: string,
+    text: string,
+  ): Promise<{ messageId: string; simulated: boolean }> {
     const token = this.config.get<string>('WHATSAPP_TOKEN');
     const phoneNumberId = this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID');
 
@@ -142,7 +177,7 @@ export class WhatsAppService {
       },
     );
 
-    const data = await response.json();
+    const data = (await response.json()) as MetaApiResponse;
     return { messageId: data.messages?.[0]?.id || 'unknown', simulated: false };
   }
 }

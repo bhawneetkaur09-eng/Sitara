@@ -11,6 +11,7 @@ import { ReviewsService } from './reviews.service';
 import { AiService } from '../ai/ai.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 
 @Controller('api/reviews')
 @UseGuards(JwtAuthGuard)
@@ -22,7 +23,7 @@ export class ReviewsController {
 
   @Get()
   async findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('source') source?: string,
     @Query('sort') sort?: 'newest' | 'lowest',
     @Query('limit') limit?: string,
@@ -37,14 +38,14 @@ export class ReviewsController {
   }
 
   @Get('stats')
-  async getStats(@CurrentUser() user: any) {
+  async getStats(@CurrentUser() user: AuthenticatedUser) {
     return this.reviewsService.getStats(user.restaurantId);
   }
 
   @Post(':id/reply')
   async reply(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body('replyText') replyText: string,
   ) {
     return this.reviewsService.reply(id, user.restaurantId, replyText);
@@ -53,7 +54,7 @@ export class ReviewsController {
   @Post(':id/draft-reply')
   async draftReply(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.reviewsService.draftAiReply(id, user.restaurantId, this.ai);
   }
@@ -61,13 +62,13 @@ export class ReviewsController {
   @Post(':id/analyze-sentiment')
   async analyzeSentiment(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.reviewsService.analyzeSentiment(id, user.restaurantId, this.ai);
   }
 
   @Post('sync')
-  async syncReviews(@CurrentUser() user: any) {
+  async syncReviews(@CurrentUser() user: AuthenticatedUser) {
     return this.reviewsService.simulateSync(user.restaurantId);
   }
 }

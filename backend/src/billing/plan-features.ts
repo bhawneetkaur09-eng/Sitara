@@ -41,7 +41,10 @@ export const PLAN_FEATURES: Record<string, Set<string>> = {
   ]),
 };
 
-export const PLAN_LIMITS: Record<string, { surveysPerMonth: number; locations: number }> = {
+export const PLAN_LIMITS: Record<
+  string,
+  { surveysPerMonth: number; locations: number }
+> = {
   starter: { surveysPerMonth: 100, locations: 1 },
   growth: { surveysPerMonth: 500, locations: 3 },
   pro: { surveysPerMonth: Infinity, locations: Infinity },

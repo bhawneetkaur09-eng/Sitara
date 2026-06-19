@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { api, type Alert } from '@/lib/api';
 
@@ -12,11 +12,7 @@ export default function AlertsPage() {
   const [resolveNote, setResolveNote] = useState('');
   const [sendNudge, setSendNudge] = useState(false);
 
-  useEffect(() => {
-    loadAlerts();
-  }, [filter]);
-
-  async function loadAlerts() {
+  const loadAlerts = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.alerts.list(filter || undefined);
@@ -26,7 +22,11 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
+
+  useEffect(() => {
+    void loadAlerts();
+  }, [loadAlerts]);
 
   async function handleResolve(alertId: string) {
     try {

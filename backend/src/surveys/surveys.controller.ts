@@ -6,14 +6,17 @@ import {
   Query,
   Param,
   UseGuards,
-  Req,
   Res,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { SurveysService } from './surveys.service';
-import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import {
+  WhatsAppService,
+  type WebhookBody,
+} from '../whatsapp/whatsapp.service';
 import { SendSurveyDto } from './dto/send-survey.dto';
 
 @Controller('api')
@@ -26,7 +29,7 @@ export class SurveysController {
   @Post('surveys/send')
   @UseGuards(JwtAuthGuard)
   async sendSurvey(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SendSurveyDto,
   ) {
     return this.surveys.sendSurvey(
@@ -49,7 +52,7 @@ export class SurveysController {
   @Get('surveys')
   @UseGuards(JwtAuthGuard)
   async list(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('status') status?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
@@ -63,7 +66,7 @@ export class SurveysController {
 
   @Get('surveys/stats')
   @UseGuards(JwtAuthGuard)
-  async stats(@CurrentUser() user: any) {
+  async stats(@CurrentUser() user: AuthenticatedUser) {
     return this.surveys.getStats(user.restaurantId);
   }
 
@@ -83,7 +86,7 @@ export class SurveysController {
   }
 
   @Post('webhooks/whatsapp')
-  async receiveWebhook(@Body() body: any, @Res() res: Response) {
+  async receiveWebhook(@Body() body: WebhookBody, @Res() res: Response) {
     res.status(200).send('EVENT_RECEIVED');
 
     const message = this.whatsapp.parseWebhookPayload(body);
@@ -106,7 +109,10 @@ export class SurveysController {
     }
 
     // Handle inbound "Hi" from QR scan — auto-send survey
-    if (message.type === 'text' && message.text?.toLowerCase().trim() === 'hi') {
+    if (
+      message.type === 'text' &&
+      message.text?.toLowerCase().trim() === 'hi'
+    ) {
       try {
         await this.surveys.handleQrScan(message.from);
       } catch {
@@ -118,7 +124,7 @@ export class SurveysController {
   @Post('surveys/simulate-scan')
   @UseGuards(JwtAuthGuard)
   async simulateScan(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() body: { phone: string },
   ) {
     return this.surveys.handleQrScan(body.phone, user.restaurantId);

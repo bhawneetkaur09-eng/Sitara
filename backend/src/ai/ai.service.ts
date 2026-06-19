@@ -6,13 +6,21 @@ export interface AiDraftRequest {
   reviewRating: number;
   reviewLanguage: string;
   restaurantName: string;
-  voiceSetting: string; // formal | casual | friendly
+  voiceSetting: string;
   authorName: string;
 }
 
 export interface SentimentResult {
   sentiment: 'positive' | 'neutral' | 'negative';
   confidence: number;
+}
+
+interface GeminiResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
+  }>;
 }
 
 @Injectable()
@@ -34,21 +42,29 @@ export class AiService {
     }
   }
 
-  async draftReply(req: AiDraftRequest): Promise<{ reply: string; provider: string }> {
+  async draftReply(
+    req: AiDraftRequest,
+  ): Promise<{ reply: string; provider: string }> {
     if (this.provider === 'gemini') {
       return this.draftWithGemini(req);
     }
     return this.draftSimulated(req);
   }
 
-  async analyzeSentiment(text: string, rating: number): Promise<SentimentResult> {
+  async analyzeSentiment(
+    text: string,
+    rating: number,
+  ): Promise<SentimentResult> {
     if (this.provider === 'gemini') {
       return this.sentimentWithGemini(text, rating);
     }
     return this.sentimentSimulated(text, rating);
   }
 
-  private draftSimulated(req: AiDraftRequest): { reply: string; provider: string } {
+  private draftSimulated(req: AiDraftRequest): {
+    reply: string;
+    provider: string;
+  } {
     const isHindi = req.reviewLanguage === 'hi';
     const name = req.authorName.split(' ')[0];
 
@@ -78,7 +94,9 @@ export class AiService {
     return { sentiment: 'negative', confidence: 0.9 };
   }
 
-  private async draftWithGemini(req: AiDraftRequest): Promise<{ reply: string; provider: string }> {
+  private async draftWithGemini(
+    req: AiDraftRequest,
+  ): Promise<{ reply: string; provider: string }> {
     const prompt = `You are a restaurant reply assistant for "${req.restaurantName}".
 
 Write a reply to this customer review. Match the tone: ${req.voiceSetting}.
@@ -105,7 +123,7 @@ Reply:`;
         },
       );
 
-      const data = await response.json();
+      const data = (await response.json()) as GeminiResponse;
       const reply =
         data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
         this.draftSimulated(req).reply;
@@ -117,7 +135,10 @@ Reply:`;
     }
   }
 
-  private async sentimentWithGemini(text: string, rating: number): Promise<SentimentResult> {
+  private async sentimentWithGemini(
+    text: string,
+    rating: number,
+  ): Promise<SentimentResult> {
     const prompt = `Analyze the sentiment of this restaurant review. Reply with ONLY one word: positive, neutral, or negative.
 
 Rating: ${rating}/5
@@ -138,16 +159,26 @@ Sentiment:`;
         },
       );
 
-      const data = await response.json();
+      const data = (await response.json()) as GeminiResponse;
       const result = data.candidates?.[0]?.content?.parts?.[0]?.text
         ?.trim()
         .toLowerCase();
 
-      if (['positive', 'neutral', 'negative'].includes(result)) {
-        return { sentiment: result as SentimentResult['sentiment'], confidence: 0.85 };
+      const validSentiments = ['positive', 'neutral', 'negative'] as const;
+      if (
+        result &&
+        validSentiments.includes(result as (typeof validSentiments)[number])
+      ) {
+        return {
+          sentiment: result as SentimentResult['sentiment'],
+          confidence: 0.85,
+        };
       }
     } catch (err) {
-      this.logger.error('Gemini sentiment failed, falling back to simulated:', err);
+      this.logger.error(
+        'Gemini sentiment failed, falling back to simulated:',
+        err,
+      );
     }
 
     return this.sentimentSimulated(text, rating);

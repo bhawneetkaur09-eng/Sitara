@@ -2,6 +2,7 @@ import { Controller, Get, UseGuards, Res, Header } from '@nestjs/common';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { QrService } from './qr.service';
 
 @Controller('api/qr')
@@ -10,14 +11,20 @@ export class QrController {
   constructor(private readonly qrService: QrService) {}
 
   @Get()
-  async getQr(@CurrentUser() user: any) {
+  async getQr(@CurrentUser() user: AuthenticatedUser) {
     return this.qrService.getQrDataUrl(user.restaurantId);
   }
 
   @Get('download')
   @Header('Content-Type', 'image/svg+xml')
-  @Header('Content-Disposition', 'attachment; filename="sitara-feedback-qr.svg"')
-  async downloadQr(@CurrentUser() user: any, @Res() res: Response) {
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="sitara-feedback-qr.svg"',
+  )
+  async downloadQr(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
     const svg = await this.qrService.getQrSvg(user.restaurantId);
     res.send(svg);
   }

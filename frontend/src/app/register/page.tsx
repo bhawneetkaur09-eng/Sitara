@@ -37,8 +37,8 @@ export default function RegisterPage() {
       localStorage.setItem('user', JSON.stringify(result.user));
       localStorage.setItem('token', result.access_token);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Registration failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setLoading(false);
     }

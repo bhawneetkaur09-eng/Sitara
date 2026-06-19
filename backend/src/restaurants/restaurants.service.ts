@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
 
@@ -37,7 +41,9 @@ export class RestaurantsService {
       where: { email: user.email, restaurantId },
     });
     if (!targetUser) {
-      throw new BadRequestException('You do not have access to this restaurant');
+      throw new BadRequestException(
+        'You do not have access to this restaurant',
+      );
     }
 
     return this.authService.loginAsUser(targetUser.id);

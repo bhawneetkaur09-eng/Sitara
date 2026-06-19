@@ -94,7 +94,9 @@ export class BillingService {
 
   async changePlan(restaurantId: string, newPlan: string) {
     if (!PLANS[newPlan as PlanId]) {
-      throw new BadRequestException(`Invalid plan: ${newPlan}. Must be starter, growth, or pro.`);
+      throw new BadRequestException(
+        `Invalid plan: ${newPlan}. Must be starter, growth, or pro.`,
+      );
     }
 
     const restaurant = await this.prisma.restaurant.findUnique({
@@ -104,19 +106,17 @@ export class BillingService {
       throw new BadRequestException('Restaurant not found');
     }
 
-    const oldPlan = restaurant.plan;
-
-    const updated = await this.prisma.restaurant.update({
+    await this.prisma.restaurant.update({
       where: { id: restaurantId },
       data: { plan: newPlan },
     });
 
     this.logger.log(
-      `Restaurant ${restaurant.name} changed plan: ${oldPlan} → ${newPlan}`,
+      `Restaurant ${restaurant.name} changed plan: ${restaurant.plan} → ${newPlan}`,
     );
 
     return {
-      previousPlan: oldPlan,
+      previousPlan: restaurant.plan,
       newPlan: newPlan,
       plan: PLANS[newPlan as PlanId],
       message: `Plan changed to ${PLANS[newPlan as PlanId].name}. In production, Razorpay subscription would be updated.`,

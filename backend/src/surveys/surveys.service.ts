@@ -84,19 +84,21 @@ export class SurveysService {
   async handleQrScan(phone: string, restaurantId?: string) {
     // When a customer scans the QR and sends "Hi", auto-send them a survey.
     // If restaurantId isn't provided (real webhook), find the restaurant by whatsapp number.
-    let restaurant: any;
-    if (restaurantId) {
-      restaurant = await this.prisma.restaurant.findUnique({ where: { id: restaurantId } });
-    } else {
-      restaurant = await this.prisma.restaurant.findFirst();
-    }
+    const restaurant = restaurantId
+      ? await this.prisma.restaurant.findUnique({
+          where: { id: restaurantId },
+        })
+      : await this.prisma.restaurant.findFirst();
+
     if (!restaurant) {
       throw new BadRequestException('No restaurant found');
     }
 
     const normalizedPhone = phone.replace(/\D/g, '');
 
-    this.logger.log(`QR scan detected from ${normalizedPhone} for ${restaurant.name}`);
+    this.logger.log(
+      `QR scan detected from ${normalizedPhone} for ${restaurant.name}`,
+    );
 
     return this.sendSurvey(restaurant.id, normalizedPhone, undefined, 'qr');
   }
@@ -209,8 +211,11 @@ export class SurveysService {
     return updated;
   }
 
-  async findAll(restaurantId: string, filters?: { status?: string; limit?: number; offset?: number }) {
-    const where: any = { restaurantId };
+  async findAll(
+    restaurantId: string,
+    filters?: { status?: string; limit?: number; offset?: number },
+  ) {
+    const where: { restaurantId: string; status?: string } = { restaurantId };
     if (filters?.status) {
       where.status = filters.status;
     }
@@ -231,7 +236,11 @@ export class SurveysService {
 
   async getStats(restaurantId: string) {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     const weekStart = new Date(todayStart);
     weekStart.setDate(weekStart.getDate() - 7);
     const monthStart = new Date(todayStart);
@@ -242,20 +251,30 @@ export class SurveysService {
       select: { rating: true, status: true, createdAt: true },
     });
 
-    const sentToday = allSurveys.filter((s) => s.createdAt >= todayStart).length;
-    const sentThisWeek = allSurveys.filter((s) => s.createdAt >= weekStart).length;
-    const sentThisMonth = allSurveys.filter((s) => s.createdAt >= monthStart).length;
+    const sentToday = allSurveys.filter(
+      (s) => s.createdAt >= todayStart,
+    ).length;
+    const sentThisWeek = allSurveys.filter(
+      (s) => s.createdAt >= weekStart,
+    ).length;
+    const sentThisMonth = allSurveys.filter(
+      (s) => s.createdAt >= monthStart,
+    ).length;
 
     const rated = allSurveys.filter((s) => s.rating !== null);
-    const responseRate = allSurveys.length > 0
-      ? Math.round((rated.length / allSurveys.length) * 100)
-      : 0;
+    const responseRate =
+      allSurveys.length > 0
+        ? Math.round((rated.length / allSurveys.length) * 100)
+        : 0;
 
-    const avgRating = rated.length > 0
-      ? Math.round(
-          (rated.reduce((sum, s) => sum + (s.rating ?? 0), 0) / rated.length) * 10,
-        ) / 10
-      : 0;
+    const avgRating =
+      rated.length > 0
+        ? Math.round(
+            (rated.reduce((sum, s) => sum + (s.rating ?? 0), 0) /
+              rated.length) *
+              10,
+          ) / 10
+        : 0;
 
     return {
       total: allSurveys.length,

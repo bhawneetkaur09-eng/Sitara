@@ -87,7 +87,7 @@ export default function ReviewsPage() {
   }, [source, sort]);
 
   useEffect(() => {
-    loadReviews();
+    void loadReviews();
   }, [loadReviews]);
 
   async function handleReply(reviewId: string) {

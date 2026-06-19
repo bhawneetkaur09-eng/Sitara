@@ -1,6 +1,15 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { RestaurantsService } from './restaurants.service';
 
 @Controller('api/restaurant')
@@ -9,13 +18,13 @@ export class RestaurantsController {
   constructor(private readonly restaurants: RestaurantsService) {}
 
   @Get('locations')
-  async listLocations(@CurrentUser() user: any) {
+  async listLocations(@CurrentUser() user: AuthenticatedUser) {
     return this.restaurants.listForUser(user.id);
   }
 
   @Post('switch/:id')
   async switchLocation(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') restaurantId: string,
   ) {
     return this.restaurants.switchLocation(user.id, restaurantId);
@@ -23,20 +32,20 @@ export class RestaurantsController {
 
   @Post('add-location')
   async addLocation(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() body: { name: string; location: string },
   ) {
     return this.restaurants.addLocation(user.id, body);
   }
 
   @Get('settings')
-  async getSettings(@CurrentUser() user: any) {
+  async getSettings(@CurrentUser() user: AuthenticatedUser) {
     return this.restaurants.getSettings(user.restaurantId);
   }
 
   @Patch('settings')
   async updateSettings(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body()
     body: {
       gatingEnabled?: boolean;

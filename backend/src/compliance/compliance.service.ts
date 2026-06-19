@@ -63,7 +63,13 @@ export class ComplianceService {
       where: { restaurantId },
       include: {
         surveys: {
-          select: { id: true, rating: true, feedback: true, status: true, createdAt: true },
+          select: {
+            id: true,
+            rating: true,
+            feedback: true,
+            status: true,
+            createdAt: true,
+          },
         },
       },
     });

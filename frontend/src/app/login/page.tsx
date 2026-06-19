@@ -23,8 +23,8 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(result.user));
       localStorage.setItem('token', result.access_token);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }

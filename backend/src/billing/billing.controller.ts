@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/authenticated-user';
 import { BillingService } from './billing.service';
 
 @Controller('api/billing')
@@ -14,18 +15,18 @@ export class BillingController {
   }
 
   @Get()
-  async getBilling(@CurrentUser() user: any) {
+  async getBilling(@CurrentUser() user: AuthenticatedUser) {
     return this.billing.getBillingInfo(user.restaurantId);
   }
 
   @Get('features')
-  async getFeatures(@CurrentUser() user: any) {
+  async getFeatures(@CurrentUser() user: AuthenticatedUser) {
     return this.billing.getFeatures(user.restaurantId);
   }
 
   @Post('change-plan')
   async changePlan(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body('plan') plan: string,
   ) {
     return this.billing.changePlan(user.restaurantId, plan);

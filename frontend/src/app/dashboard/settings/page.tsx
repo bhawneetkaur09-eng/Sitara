@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import {
   Settings,
   AlertTriangle,
@@ -17,9 +18,13 @@ import {
 } from '@/lib/api';
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('user');
+    return stored ? (JSON.parse(stored) as User) : null;
+  });
   const [qrData, setQrData] = useState<QrData | null>(null);
-  const [qrLoading, setQrLoading] = useState(false);
+  const [qrLoading, setQrLoading] = useState(true);
   const [scanPhone, setScanPhone] = useState('');
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -31,21 +36,22 @@ export default function SettingsPage() {
   const [offerSaved, setOfferSaved] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (stored) setUser(JSON.parse(stored));
-  }, []);
-
-  useEffect(() => {
     if (!user) return;
-    setQrLoading(true);
+    let cancelled = false;
     Promise.all([api.qr.get(), api.restaurant.getSettings()])
       .then(([qr, s]) => {
+        if (cancelled) return;
         setQrData(qr);
         setSettings(s);
         setRecoveryOffer(s.recoveryOffer || '');
       })
       .catch(() => {})
-      .finally(() => setQrLoading(false));
+      .finally(() => {
+        if (!cancelled) setQrLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   async function toggleGating() {
@@ -89,8 +95,10 @@ export default function SettingsPage() {
         `Survey sent to ${scanPhone.trim()} (${result.simulated ? 'simulated' : 'live'})`,
       );
       setScanPhone('');
-    } catch (err: any) {
-      setScanResult(`Error: ${err.message}`);
+    } catch (err) {
+      setScanResult(
+        `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
     } finally {
       setScanning(false);
     }
@@ -155,10 +163,12 @@ export default function SettingsPage() {
             <div className="flex flex-col sm:flex-row gap-6 items-start">
               {/* QR Image */}
               <div className="bg-white border-2 border-gray-100 rounded-xl p-4 flex-shrink-0">
-                <img
+                <Image
                   src={qrData.dataUrl}
                   alt="Feedback QR Code"
-                  className="w-48 h-48"
+                  width={192}
+                  height={192}
+                  unoptimized
                 />
                 <p className="text-center text-xs font-medium text-gray-500 mt-2">
                   {qrData.restaurantName}

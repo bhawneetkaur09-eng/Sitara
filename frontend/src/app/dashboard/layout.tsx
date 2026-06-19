@@ -19,7 +19,12 @@ import {
   ChevronDown,
   Plus,
 } from 'lucide-react';
-import { api, type User, type LocationInfo } from '@/lib/api';
+import {
+  api,
+  type User,
+  type LocationInfo,
+  type SwitchLocationResult,
+} from '@/lib/api';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -38,7 +43,11 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const [user] = useState<User | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('user');
+    return stored ? (JSON.parse(stored) as User) : null;
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [locations, setLocations] = useState<LocationInfo[]>([]);
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
@@ -47,18 +56,12 @@ export default function DashboardLayout({
   const [newLocAddress, setNewLocAddress] = useState('');
 
   useEffect(() => {
-    const stored = localStorage.getItem('user');
-    if (!stored) {
+    if (!user) {
       router.push('/login');
       return;
     }
-    setUser(JSON.parse(stored));
-  }, [router]);
-
-  useEffect(() => {
-    if (!user) return;
     api.restaurant.listLocations().then(setLocations).catch(console.error);
-  }, [user]);
+  }, [user, router]);
 
   async function handleSwitchLocation(loc: LocationInfo) {
     if (user?.restaurant?.id === loc.id) {
@@ -66,12 +69,16 @@ export default function DashboardLayout({
       return;
     }
     try {
-      const result = await api.restaurant.switchLocation(loc.id) as any;
-      if (result.access_token) {
-        localStorage.setItem('token', result.access_token);
+      const result = await api.restaurant.switchLocation(loc.id);
+      const fullResult = result as SwitchLocationResult & {
+        access_token?: string;
+        user?: User;
+      };
+      if (fullResult.access_token) {
+        localStorage.setItem('token', fullResult.access_token);
       }
-      if (result.user) {
-        localStorage.setItem('user', JSON.stringify(result.user));
+      if (fullResult.user) {
+        localStorage.setItem('user', JSON.stringify(fullResult.user));
       }
       setLocationDropdownOpen(false);
       window.location.reload();

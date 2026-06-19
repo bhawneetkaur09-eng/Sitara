@@ -1,0 +1,94 @@
+# Sitara CI — runs on every PR to main
+#
+# Two parallel jobs: backend (NestJS) and frontend (Next.js).
+# Both must pass before a PR can be merged.
+#
+# BRANCH PROTECTION SETUP (do this once in GitHub):
+#   1. Go to repo Settings > Branches > Add branch ruleset
+#   2. Target branch: "main"
+#   3. Enable "Require a pull request before merging"
+#   4. Enable "Require status checks to pass before merging"
+#      - Add required checks: "backend" and "frontend"
+#   5. Enable "Require approvals" and set to 1
+#   6. Enable "Do not allow bypassing the above settings"
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint:ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup test database
+        run: npx prisma db push
+        env:
+          DATABASE_URL: "file:./test.db"
+
+      - name: Run tests
+        run: npm run test:e2e -- --forceExit
+        env:
+          DATABASE_URL: "file:./test.db"
+          JWT_SECRET: "ci-test-secret"
+          JWT_EXPIRATION: "7d"
+          PORT: "3001"
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint
+
+      - name: Test
+        run: npm run test:ci
+
+      - name: Build
+        run: npm run build

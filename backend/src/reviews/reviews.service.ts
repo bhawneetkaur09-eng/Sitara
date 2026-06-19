@@ -17,13 +17,13 @@ export class ReviewsService {
       offset?: number;
     },
   ) {
-    const where: any = { restaurantId };
+    const where: { restaurantId: string; source?: string } = { restaurantId };
 
     if (filters?.source && filters.source !== 'all') {
       where.source = filters.source;
     }
 
-    const orderBy: any =
+    const orderBy =
       filters?.sort === 'lowest'
         ? { rating: 'asc' as const }
         : { postedAt: 'desc' as const };
@@ -49,9 +49,7 @@ export class ReviewsService {
 
     const total = reviews.length;
     const avgRating =
-      total > 0
-        ? reviews.reduce((sum, r) => sum + r.rating, 0) / total
-        : 0;
+      total > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / total : 0;
 
     const distribution = [1, 2, 3, 4, 5].map((star) => ({
       rating: star,
@@ -134,7 +132,11 @@ export class ReviewsService {
     };
   }
 
-  async analyzeSentiment(reviewId: string, restaurantId: string, ai: AiService) {
+  async analyzeSentiment(
+    reviewId: string,
+    restaurantId: string,
+    ai: AiService,
+  ) {
     const review = await this.prisma.review.findFirst({
       where: { id: reviewId, restaurantId },
     });
@@ -149,16 +151,50 @@ export class ReviewsService {
       data: { sentiment: result.sentiment },
     });
 
-    return { reviewId: review.id, sentiment: result.sentiment, confidence: result.confidence };
+    return {
+      reviewId: review.id,
+      sentiment: result.sentiment,
+      confidence: result.confidence,
+    };
   }
 
   async simulateSync(restaurantId: string) {
     const fakeReviews = [
-      { source: 'google', author: 'New Google User', rating: 5, text: 'Just discovered this gem! Amazing food and great value.', language: 'en' },
-      { source: 'google', author: 'Weekend Visitor', rating: 4, text: 'Nice atmosphere, food was tasty. Slightly long wait.', language: 'en' },
-      { source: 'facebook', author: 'FB Foodie', rating: 5, text: 'Recommended by a friend and did not disappoint! The biryani is outstanding.', language: 'en' },
-      { source: 'facebook', author: 'Local Reviewer', rating: 3, text: 'Decent food but nothing special. Service could be faster.', language: 'en' },
-      { source: 'google', author: 'Naya Customer', rating: 4, text: 'Bahut accha khana! Paneer butter masala was the best.', language: 'hi' },
+      {
+        source: 'google',
+        author: 'New Google User',
+        rating: 5,
+        text: 'Just discovered this gem! Amazing food and great value.',
+        language: 'en',
+      },
+      {
+        source: 'google',
+        author: 'Weekend Visitor',
+        rating: 4,
+        text: 'Nice atmosphere, food was tasty. Slightly long wait.',
+        language: 'en',
+      },
+      {
+        source: 'facebook',
+        author: 'FB Foodie',
+        rating: 5,
+        text: 'Recommended by a friend and did not disappoint! The biryani is outstanding.',
+        language: 'en',
+      },
+      {
+        source: 'facebook',
+        author: 'Local Reviewer',
+        rating: 3,
+        text: 'Decent food but nothing special. Service could be faster.',
+        language: 'en',
+      },
+      {
+        source: 'google',
+        author: 'Naya Customer',
+        rating: 4,
+        text: 'Bahut accha khana! Paneer butter masala was the best.',
+        language: 'hi',
+      },
     ];
 
     const picked = fakeReviews[Math.floor(Math.random() * fakeReviews.length)];
@@ -173,13 +209,20 @@ export class ReviewsService {
         rating: picked.rating,
         text: picked.text,
         language: picked.language,
-        sentiment: picked.rating >= 4 ? 'positive' : picked.rating === 3 ? 'neutral' : 'negative',
+        sentiment:
+          picked.rating >= 4
+            ? 'positive'
+            : picked.rating === 3
+              ? 'neutral'
+              : 'negative',
         postedAt: new Date(),
         replied: false,
       },
     });
 
-    this.logger.log(`Simulated sync: new ${picked.source} review from "${picked.author}" (${picked.rating}★)`);
+    this.logger.log(
+      `Simulated sync: new ${picked.source} review from "${picked.author}" (${picked.rating}★)`,
+    );
 
     return {
       synced: 1,

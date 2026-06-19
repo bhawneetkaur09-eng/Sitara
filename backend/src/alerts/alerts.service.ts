@@ -12,13 +12,8 @@ export class AlertsService {
   ) {}
 
   async findAll(restaurantId: string, status?: string) {
-    const where: any = { restaurantId };
-    if (status) {
-      where.status = status;
-    }
-
     return this.prisma.alert.findMany({
-      where,
+      where: { restaurantId, ...(status ? { status } : {}) },
       orderBy: { createdAt: 'desc' },
       include: { survey: true },
     });

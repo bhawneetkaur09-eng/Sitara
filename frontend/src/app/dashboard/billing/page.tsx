@@ -189,7 +189,7 @@ export default function BillingPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {plans.map((plan) => {
           const isCurrent = billing?.currentPlan.id === plan.id;
-          const isPopular = (plan as any).popular;
+          const isPopular = 'popular' in plan && plan.popular;
           return (
             <div
               key={plan.id}
@@ -320,7 +320,7 @@ export default function BillingPage() {
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 mt-3">
-                    Invoice #INV-{Date.now().toString().slice(-8)} &middot; GST-compliant
+                    Invoice #INV-SIM-0001 &middot; GST-compliant
                   </p>
                 </div>
 

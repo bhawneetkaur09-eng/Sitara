@@ -95,7 +95,8 @@ export const api = {
       request<{ purged: number; message: string }>('/api/compliance/purge-stale', {
         method: 'POST',
       }),
-    exportData: () => request<any[]>('/api/compliance/export'),
+    exportData: () =>
+      request<Record<string, unknown>[]>('/api/compliance/export'),
   },
   restaurant: {
     getSettings: () => request<RestaurantSettings>('/api/restaurant/settings'),

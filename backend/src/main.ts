@@ -24,4 +24,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Sitara API running on http://localhost:${port}`);
 }
-bootstrap();
+void bootstrap();

@@ -2,33 +2,22 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth import service as auth_service
-from app.models import Restaurant, User
+from app.models import Membership, Restaurant, User
 
 
 def list_for_user(db: Session, user_id: str) -> list[dict]:
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    users = db.query(User).filter(User.email == user.email).all()
+    memberships = db.query(Membership).filter(Membership.user_id == user_id).all()
     result = []
-    for u in users:
-        r = db.query(Restaurant).filter(Restaurant.id == u.restaurant_id).first()
+    for m in memberships:
+        r = db.query(Restaurant).filter(Restaurant.id == m.restaurant_id).first()
         if r:
-            result.append({"id": r.id, "name": r.name, "location": r.location, "plan": r.plan})
+            result.append({"id": r.id, "name": r.name, "location": r.location, "plan": r.plan, "role": m.role})
     return result
 
 
 def switch_location(db: Session, user_id: str, restaurant_id: str) -> dict:
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    target = db.query(User).filter(User.email == user.email, User.restaurant_id == restaurant_id).first()
-    if not target:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You do not have access to this restaurant")
-
-    return auth_service.login_as_user(db, target.id)
+    # Membership check + new session is handled in the auth service.
+    return auth_service.switch_restaurant(db, user_id, restaurant_id)
 
 
 def add_location(db: Session, user_id: str, name: str, location: str) -> dict:
@@ -40,18 +29,13 @@ def add_location(db: Session, user_id: str, name: str, location: str) -> dict:
     db.add(restaurant)
     db.flush()
 
-    new_user = User(
-        email=user.email,
-        password=user.password,
-        name=user.name,
-        role=user.role,
-        restaurant_id=restaurant.id,
-    )
-    db.add(new_user)
+    # Grant the creating user owner access to the new location — no cloned user row.
+    membership = Membership(user_id=user.id, restaurant_id=restaurant.id, role="owner")
+    db.add(membership)
     db.commit()
     db.refresh(restaurant)
 
-    return {"id": restaurant.id, "name": restaurant.name, "location": restaurant.location}
+    return {"id": restaurant.id, "name": restaurant.name, "location": restaurant.location, "role": "owner"}
 
 
 def get_settings(db: Session, restaurant_id: str) -> dict:

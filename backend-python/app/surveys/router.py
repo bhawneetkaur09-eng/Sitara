@@ -50,8 +50,8 @@ def list_surveys(
 
 
 @router.post("/surveys/{survey_id}/simulate-rating")
-async def simulate_rating(survey_id: str, body: SimulateRatingBody, db: Session = Depends(get_db)):
-    return await service.handle_rating(db, survey_id, body.rating, body.feedback)
+async def simulate_rating(survey_id: str, body: SimulateRatingBody, user: CurrentUser, db: Session = Depends(get_db)):
+    return await service.handle_rating(db, survey_id, body.rating, body.feedback, restaurant_id=user["restaurantId"])
 
 
 @router.post("/surveys/simulate-scan")

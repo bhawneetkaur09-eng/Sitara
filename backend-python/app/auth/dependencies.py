@@ -1,50 +1,59 @@
-from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
 
-from fastapi import Cookie, Depends, HTTPException, status
-from jose import JWTError, jwt
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.auth.tokens import decode_access_token
 from app.database import get_db
-from app.models import Restaurant, User
+from app.models import Membership, Restaurant, User
 
 
-def create_access_token(payload: dict) -> str:
-    data = payload.copy()
-    data["exp"] = datetime.now(timezone.utc) + timedelta(days=settings.jwt_expiration_days)
-    return jwt.encode(data, settings.jwt_secret, algorithm="HS256")
-
-
-def _decode_token(token: str) -> dict:
-    try:
-        return jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+def _extract_bearer(authorization: Optional[str], cookie_token: Optional[str]) -> Optional[str]:
+    """Access token from the Authorization header (primary) or cookie (fallback)."""
+    if authorization:
+        parts = authorization.split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            return parts[1].strip()
+    return cookie_token
 
 
 def get_current_user(
+    authorization: Optional[str] = Header(default=None),
     access_token: Optional[str] = Cookie(default=None),
     db: Session = Depends(get_db),
 ) -> dict:
-    if not access_token:
+    token = _extract_bearer(authorization, access_token)
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    payload = _decode_token(access_token)
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
     user_id: str = payload.get("sub", "")
+    restaurant_id: str = payload.get("restaurantId", "")
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    restaurant = db.query(Restaurant).filter(Restaurant.id == user.restaurant_id).first()
+    # Authorization: the token's restaurant must be one this user actually belongs to.
+    membership = (
+        db.query(Membership)
+        .filter(Membership.user_id == user_id, Membership.restaurant_id == restaurant_id)
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to this restaurant")
+
+    restaurant = db.query(Restaurant).filter(Restaurant.id == restaurant_id).first()
 
     return {
         "id": user.id,
         "email": user.email,
         "name": user.name,
-        "role": user.role,
-        "restaurantId": user.restaurant_id,
+        "role": membership.role,
+        "restaurantId": restaurant_id,
         "restaurant": {
             "id": restaurant.id,
             "name": restaurant.name,
@@ -54,3 +63,17 @@ def get_current_user(
 
 
 CurrentUser = Annotated[dict, Depends(get_current_user)]
+
+
+def require_role(*allowed_roles: str):
+    """Dependency factory to restrict an endpoint to specific roles."""
+
+    def _checker(user: CurrentUser) -> dict:
+        if user["role"] not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action",
+            )
+        return user
+
+    return _checker

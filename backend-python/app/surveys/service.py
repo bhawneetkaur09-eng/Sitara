@@ -68,13 +68,18 @@ async def handle_qr_scan(db: Session, phone: str, restaurant_id: Optional[str] =
     return await send_survey(db, restaurant.id, normalized, None, "qr")
 
 
-async def handle_rating(db: Session, survey_id: str, rating: int, feedback: Optional[str] = None) -> dict:
+async def handle_rating(
+    db: Session, survey_id: str, rating: int, feedback: Optional[str] = None, restaurant_id: Optional[str] = None
+) -> dict:
     if not (1 <= rating <= 5):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rating must be between 1 and 5")
 
     survey = db.query(Survey).filter(Survey.id == survey_id).first()
     if not survey:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Survey not found")
+    # When called by an authenticated endpoint, ensure the survey belongs to that tenant.
+    if restaurant_id is not None and survey.restaurant_id != restaurant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Survey not found")
     if survey.rating is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Survey already rated")
 

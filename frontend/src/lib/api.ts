@@ -1,7 +1,50 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+function getToken(): string | null {
+  return typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+}
+
+function setToken(token: string): void {
+  if (typeof window !== 'undefined') localStorage.setItem('token', token);
+}
+
+function clearSession(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+}
+
+// Single in-flight refresh shared across concurrent 401s, so we hit /refresh once.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include', // sends the httpOnly refresh cookie
+    })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const data = (await res.json()) as { access_token?: string; user?: unknown };
+        if (data.access_token) {
+          setToken(data.access_token);
+          if (data.user && typeof window !== 'undefined') {
+            localStorage.setItem('user', JSON.stringify(data.user));
+          }
+          return data.access_token;
+        }
+        return null;
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+async function request<T>(path: string, options?: RequestInit, _retried = false): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     headers: {
@@ -12,9 +55,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
 
+  // Access token expired — try one transparent refresh, then retry the request.
+  if (res.status === 401 && !_retried && !path.startsWith('/api/auth/')) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      return request<T>(path, options, true);
+    }
+    clearSession();
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
+    }
+  }
+
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${res.status}`);
+    const error = await res.json().catch(() => ({ detail: 'Request failed' }));
+    throw new Error(error.detail || error.message || `HTTP ${res.status}`);
   }
 
   return res.json();
@@ -40,6 +95,10 @@ export const api = {
       }),
     logout: () =>
       request('/api/auth/logout', { method: 'POST' }),
+    refresh: () =>
+      request<{ access_token: string; user: User }>('/api/auth/refresh', {
+        method: 'POST',
+      }),
     me: () => request<User>('/api/auth/me'),
   },
   reviews: {
@@ -118,9 +177,24 @@ export const api = {
   },
   qr: {
     get: () => request<QrData>('/api/qr'),
-    downloadUrl: () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      return `${API_BASE}/api/qr/download${token ? `?token=${token}` : ''}`;
+    // The SVG endpoint requires auth, so fetch it as a blob (Bearer header) and
+    // trigger a client-side download rather than a plain <a href> (which can't
+    // carry the token). The PNG download in the UI uses QrData.dataUrl directly.
+    downloadUrl: () => `${API_BASE}/api/qr/download`,
+    downloadSvg: async () => {
+      const token = getToken();
+      const res = await fetch(`${API_BASE}/api/qr/download`, {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to download QR code');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sitara-feedback-qr.svg';
+      link.click();
+      URL.revokeObjectURL(url);
     },
   },
   surveys: {

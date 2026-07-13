@@ -1,22 +1,20 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.auth.cookies import set_refresh_cookie
 from app.auth.dependencies import CurrentUser
-from app.config import settings
 from app.database import get_db
 from app.restaurants import service
 
 router = APIRouter(prefix="/api/restaurant")
 
-_COOKIE_MAX_AGE = settings.jwt_expiration_days * 24 * 60 * 60
-
 
 class AddLocationBody(BaseModel):
-    name: str
-    location: str
+    name: str = Field(min_length=1, max_length=200)
+    location: str = Field(min_length=1, max_length=200)
 
 
 class UpdateSettingsBody(BaseModel):
@@ -34,7 +32,7 @@ def list_locations(user: CurrentUser, db: Session = Depends(get_db)):
 @router.post("/switch/{restaurant_id}")
 def switch_location(restaurant_id: str, user: CurrentUser, response: Response, db: Session = Depends(get_db)):
     result = service.switch_location(db, user["id"], restaurant_id)
-    response.set_cookie(key="access_token", value=result["access_token"], httponly=True, samesite="lax", max_age=_COOKIE_MAX_AGE)
+    set_refresh_cookie(response, result.pop("refresh_token"))
     return result
 
 

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
+from app.config import settings
 from app.alerts.router import router as alerts_router
 from app.auth.router import router as auth_router
 from app.billing.router import router as billing_router
@@ -21,7 +22,7 @@ app = FastAPI(title="Sitara API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

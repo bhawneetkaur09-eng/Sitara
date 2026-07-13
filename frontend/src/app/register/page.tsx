@@ -7,6 +7,7 @@ import { Star } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function RegisterPage() {
+  console.log("register page")
   const router = useRouter();
   const [form, setForm] = useState({
     name: '',
@@ -26,8 +27,8 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (form.password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
@@ -109,9 +110,9 @@ export default function RegisterPage() {
                 type="password"
                 value={form.password}
                 onChange={(e) => update('password', e.target.value)}
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
                 required
-                minLength={6}
+                minLength={8}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition text-gray-900 placeholder:text-gray-400"
               />
             </div>

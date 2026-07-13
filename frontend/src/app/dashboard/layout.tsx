@@ -108,7 +108,12 @@ export default function DashboardLayout({
     }
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try {
+      await api.auth.logout();
+    } catch {
+      // Even if the server call fails, clear the local session.
+    }
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     router.push('/login');

@@ -46,19 +46,19 @@ describe('RegisterPage', () => {
     expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument();
   });
 
-  it('validates password length (min 6)', async () => {
+  it('validates password length (min 8)', async () => {
     const user = userEvent.setup();
     render(<RegisterPage />);
 
     await user.type(screen.getByLabelText(/your name/i), 'Test');
     await user.type(screen.getByLabelText(/email/i), 'test@test.com');
-    await user.type(screen.getByLabelText(/password/i), '12345');
+    await user.type(screen.getByLabelText(/password/i), '1234567');
     await user.type(screen.getByLabelText(/restaurant name/i), 'My Restaurant');
     await user.type(screen.getByLabelText(/location/i), 'Bangalore');
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/password must be at least 6 characters/i)).toBeInTheDocument();
+      expect(screen.getByText(/password must be at least 8 characters/i)).toBeInTheDocument();
     });
     expect(mockRegister).not.toHaveBeenCalled();
   });

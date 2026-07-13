@@ -31,7 +31,9 @@ class Restaurant(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
-    users: Mapped[List["User"]] = relationship("User", back_populates="restaurant")
+    memberships: Mapped[List["Membership"]] = relationship(
+        "Membership", back_populates="restaurant", cascade="all, delete-orphan"
+    )
     customers: Mapped[List["Customer"]] = relationship("Customer", back_populates="restaurant")
     reviews: Mapped[List["Review"]] = relationship("Review", back_populates="restaurant")
     surveys: Mapped[List["Survey"]] = relationship("Survey", back_populates="restaurant")
@@ -40,18 +42,56 @@ class Restaurant(Base):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (UniqueConstraint("email", "restaurant_id"),)
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    restaurant_id: Mapped[str] = mapped_column(String, ForeignKey("restaurants.id", ondelete="CASCADE"))
-    email: Mapped[str] = mapped_column(String, nullable=False)
+    # A single account (one email) can belong to many restaurants via Membership.
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     password: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    role: Mapped[str] = mapped_column(String, default="owner")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now, onupdate=_now)
 
-    restaurant: Mapped["Restaurant"] = relationship("Restaurant", back_populates="users")
+    memberships: Mapped[List["Membership"]] = relationship(
+        "Membership", back_populates="user", cascade="all, delete-orphan"
+    )
+    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
+        "RefreshToken", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Membership(Base):
+    """Join between a User and a Restaurant. Replaces the old cloned-user rows so
+    that one account (email) can access multiple locations, each with a role."""
+
+    __tablename__ = "memberships"
+    __table_args__ = (UniqueConstraint("user_id", "restaurant_id"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    restaurant_id: Mapped[str] = mapped_column(String, ForeignKey("restaurants.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String, default="owner")  # owner | manager | staff
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    user: Mapped["User"] = relationship("User", back_populates="memberships")
+    restaurant: Mapped["Restaurant"] = relationship("Restaurant", back_populates="memberships")
+
+
+class RefreshToken(Base):
+    """Rotating, revocable refresh tokens. Only the SHA-256 hash of the token is
+    stored, so a DB leak does not expose usable tokens."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # The restaurant context this session is scoped to (which location is active).
+    restaurant_id: Mapped[str] = mapped_column(String, ForeignKey("restaurants.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    user: Mapped["User"] = relationship("User", back_populates="refresh_tokens")
 
 
 class Customer(Base):

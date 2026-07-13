@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.billing.plan_features import PLAN_FEATURES, PLAN_LIMITS, PLANS
-from app.models import Restaurant, Survey
+from app.models import Membership, Restaurant, Survey
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +22,19 @@ def get_billing_info(db: Session, restaurant_id: str) -> dict:
     plan = PLANS.get(restaurant.plan, PLANS["starter"])
 
     survey_count = db.query(Survey).filter(Survey.restaurant_id == restaurant_id).count()
-    location_count = max(
-        db.query(Restaurant).join(Restaurant.users).filter(Restaurant.users.any(restaurant_id=restaurant_id)).count(),
-        1,
+
+    # "Locations" under the plan = how many restaurants this account (the owner) manages.
+    owner_membership = (
+        db.query(Membership)
+        .filter(Membership.restaurant_id == restaurant_id, Membership.role == "owner")
+        .first()
     )
+    if owner_membership:
+        location_count = (
+            db.query(Membership).filter(Membership.user_id == owner_membership.user_id).count()
+        )
+    else:
+        location_count = 1
 
     return {
         "currentPlan": plan,

@@ -1,6 +1,4 @@
 import logging
-import random
-import time
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -8,17 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.ai import service as ai_service
 from app.ai.service import AiDraftRequest
+from app.integrations import service as integrations_service
 from app.models import Restaurant, Review
 
 logger = logging.getLogger(__name__)
-
-_FAKE_REVIEWS = [
-    {"source": "google", "author": "New Google User", "rating": 5, "text": "Just discovered this gem! Amazing food and great value.", "language": "en"},
-    {"source": "google", "author": "Weekend Visitor", "rating": 4, "text": "Nice atmosphere, food was tasty. Slightly long wait.", "language": "en"},
-    {"source": "facebook", "author": "FB Foodie", "rating": 5, "text": "Recommended by a friend and did not disappoint! The biryani is outstanding.", "language": "en"},
-    {"source": "facebook", "author": "Local Reviewer", "rating": 3, "text": "Decent food but nothing special. Service could be faster.", "language": "en"},
-    {"source": "google", "author": "Naya Customer", "rating": 4, "text": "Bahut accha khana! Paneer butter masala was the best.", "language": "hi"},
-]
 
 
 def find_all(db: Session, restaurant_id: str, source: Optional[str], sort: Optional[str], limit: int, offset: int) -> dict:
@@ -62,19 +53,34 @@ def get_stats(db: Session, restaurant_id: str) -> dict:
     }
 
 
-def reply(db: Session, review_id: str, restaurant_id: str, reply_text: str) -> dict:
+async def reply(db: Session, review_id: str, restaurant_id: str, reply_text: str) -> dict:
     from datetime import datetime, timezone
 
     review = db.query(Review).filter(Review.id == review_id, Review.restaurant_id == restaurant_id).first()
     if not review:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found")
 
+    # For Google reviews, post to Google FIRST so a failure surfaces to the owner
+    # before we mark it replied locally (keeps the dashboard honest).
+    google_warning: Optional[str] = None
+    if review.source == "google" and review.external_id:
+        try:
+            await integrations_service.post_reply(db, restaurant_id, review.external_id, reply_text)
+        except HTTPException as exc:
+            # Save locally anyway, but tell the owner the reply did not reach Google.
+            google_warning = str(exc.detail)
+            logger.warning("Reply saved locally but not posted to Google: %s", exc.detail)
+
     review.replied = True
     review.reply_text = reply_text
     review.replied_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(review)
-    return _review_dict(review)
+
+    result = _review_dict(review)
+    if google_warning:
+        result["googleWarning"] = google_warning
+    return result
 
 
 async def draft_ai_reply(db: Session, review_id: str, restaurant_id: str) -> dict:
@@ -111,32 +117,13 @@ async def analyze_sentiment(db: Session, review_id: str, restaurant_id: str) -> 
     return {"reviewId": review.id, "sentiment": result.sentiment, "confidence": result.confidence}
 
 
-def simulate_sync(db: Session, restaurant_id: str) -> dict:
-    from datetime import datetime, timezone
+async def sync_reviews(db: Session, restaurant_id: str) -> dict:
+    """Pull real reviews from the connected Google Business Profile.
 
-    picked = random.choice(_FAKE_REVIEWS)
-    external_id = f"sync_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
-    sentiment = "positive" if picked["rating"] >= 4 else ("neutral" if picked["rating"] == 3 else "negative")
-
-    review = Review(
-        restaurant_id=restaurant_id,
-        source=picked["source"],
-        external_id=external_id,
-        author=picked["author"],
-        rating=picked["rating"],
-        text=picked["text"],
-        language=picked["language"],
-        sentiment=sentiment,
-        posted_at=datetime.now(timezone.utc),
-        replied=False,
-    )
-    db.add(review)
-    db.commit()
-    db.refresh(review)
-
-    logger.info("Simulated sync: new %s review from '%s' (%d★)", picked["source"], picked["author"], picked["rating"])
-
-    return {"synced": 1, "source": picked["source"], "review": _review_dict(review)}
+    Real-only: if Google is not connected (or no location is selected), the
+    integrations service raises a clear 400 telling the owner to connect first.
+    """
+    return await integrations_service.sync_reviews(db, restaurant_id)
 
 
 def _review_dict(r: Review) -> dict:

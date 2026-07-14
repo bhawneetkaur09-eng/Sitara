@@ -38,6 +38,9 @@ class Restaurant(Base):
     reviews: Mapped[List["Review"]] = relationship("Review", back_populates="restaurant")
     surveys: Mapped[List["Survey"]] = relationship("Survey", back_populates="restaurant")
     alerts: Mapped[List["Alert"]] = relationship("Alert", back_populates="restaurant")
+    google_integration: Mapped[Optional["GoogleIntegration"]] = relationship(
+        "GoogleIntegration", back_populates="restaurant", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class User(Base):
@@ -168,3 +171,31 @@ class Alert(Base):
 
     restaurant: Mapped["Restaurant"] = relationship("Restaurant", back_populates="alerts")
     survey: Mapped[Optional["Survey"]] = relationship("Survey", back_populates="alerts")
+
+
+class GoogleIntegration(Base):
+    """A restaurant's connection to its Google Business Profile.
+
+    One row per restaurant. Stores the OAuth refresh token encrypted at rest
+    (Fernet ciphertext, never plaintext — same defensive posture as RefreshToken)
+    and the Google resource IDs needed to list/reply to reviews. Access tokens
+    are short-lived and fetched on demand from the refresh token, so they are
+    never persisted here.
+    """
+
+    __tablename__ = "google_integrations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    restaurant_id: Mapped[str] = mapped_column(
+        String, ForeignKey("restaurants.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    google_email: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    refresh_token_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    # Google resource names, e.g. "accounts/123" and "accounts/123/locations/456".
+    account_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    location_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    location_title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    connected_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    restaurant: Mapped["Restaurant"] = relationship("Restaurant", back_populates="google_integration")

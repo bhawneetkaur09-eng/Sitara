@@ -26,11 +26,22 @@ class Settings(BaseSettings):
     # "https://app.sitara.in,https://sitara.in"
     cors_origins: List[str] = ["http://localhost:3000"]
 
+    # --- Frontend (used for OAuth redirects back into the dashboard) ---
+    frontend_url: str = "http://localhost:3000"
+
     # --- Integrations ---
     gemini_api_key: str = ""
     whatsapp_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_verify_token: str = "sitara-dev-verify"
+
+    # --- Google Business Profile (OAuth) ---
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""
+    # Fernet key used to encrypt stored refresh tokens at rest. Generate with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    integration_enc_key: str = "QNJSMkXKoTkccyagqX_ETWOJ_15LAXMMp6oVHxhq4vQ="
 
     model_config = {"env_file": ".env"}
 

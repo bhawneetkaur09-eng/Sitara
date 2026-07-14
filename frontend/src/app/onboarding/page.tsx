@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Star, Check, ArrowRight, X, Smartphone, CreditCard,
-  IndianRupee, ShieldCheck, Receipt,
+  IndianRupee, ShieldCheck, Receipt, Link2,
 } from 'lucide-react';
 import { api, type PlanTier } from '@/lib/api';
 import DemoPlayer from '@/components/demo-player';
@@ -27,11 +27,19 @@ export default function OnboardingPage() {
   const [cardName, setCardName] = useState('');
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>('payment');
   const [checkoutError, setCheckoutError] = useState('');
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
+  const [googleError, setGoogleError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
+      return;
+    }
+    // Returning from the Google OAuth redirect (they already paid before leaving).
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('google')) {
+      router.push('/dashboard');
       return;
     }
     api.billing.getPlans().then(setPlans).catch(console.error).finally(() => setLoading(false));
@@ -92,6 +100,20 @@ export default function OnboardingPage() {
       console.error('Payment failed:', err);
       setCheckoutStep('payment');
       setCheckoutError('Payment failed. Please try again.');
+    }
+  }
+
+  async function handleConnectGoogle() {
+    setGoogleError('');
+    setConnectingGoogle(true);
+    try {
+      const { authUrl } = await api.integrations.connectGoogle('onboarding');
+      window.location.href = authUrl;
+    } catch (err) {
+      setGoogleError(
+        err instanceof Error ? err.message : 'Could not start Google connection.',
+      );
+      setConnectingGoogle(false);
     }
   }
 
@@ -237,11 +259,41 @@ export default function OnboardingPage() {
                   </div>
                   <p className="text-xs text-gray-400 mt-3">Invoice #INV-SIM-0001 &middot; GST-compliant</p>
                 </div>
+
+                {/* Connect Google Business Profile */}
+                <div className="mt-6 p-4 border-2 border-blue-100 bg-blue-50 rounded-xl text-left">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Link2 className="w-4 h-4 text-blue-600" />
+                    <p className="text-sm font-semibold text-gray-900">Connect your Google reviews</p>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-3">
+                    Link your Google Business Profile so Sitara can pull in your real
+                    reviews and let you reply to them from your dashboard.
+                  </p>
+                  {googleError && (
+                    <p className="text-xs text-red-600 mb-2">{googleError}</p>
+                  )}
+                  <button
+                    onClick={handleConnectGoogle}
+                    disabled={connectingGoogle}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg transition cursor-pointer"
+                  >
+                    <Link2 className="w-4 h-4" />
+                    {connectingGoogle ? 'Connecting…' : 'Connect Google Business Profile'}
+                  </button>
+                </div>
+
                 <button
                   onClick={() => router.push('/dashboard')}
-                  className="mt-6 w-full py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition cursor-pointer flex items-center justify-center gap-2"
+                  className="mt-4 w-full py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition cursor-pointer flex items-center justify-center gap-2"
                 >
                   Go to Dashboard <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="mt-2 w-full py-2 px-4 text-sm text-gray-500 hover:text-gray-700 font-medium transition cursor-pointer"
+                >
+                  Skip for now — I&apos;ll connect later in Settings
                 </button>
               </div>
             )}

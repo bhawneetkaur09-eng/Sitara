@@ -33,13 +33,13 @@ def get_stats(user: CurrentUser, db: Session = Depends(get_db)):
 
 
 @router.post("/sync")
-def sync_reviews(user: CurrentUser, db: Session = Depends(get_db)):
-    return service.simulate_sync(db, user["restaurantId"])
+async def sync_reviews(user: CurrentUser, db: Session = Depends(get_db)):
+    return await service.sync_reviews(db, user["restaurantId"])
 
 
 @router.post("/{review_id}/reply")
-def reply(review_id: str, body: ReplyBody, user: CurrentUser, db: Session = Depends(get_db)):
-    return service.reply(db, review_id, user["restaurantId"], body.replyText)
+async def reply(review_id: str, body: ReplyBody, user: CurrentUser, db: Session = Depends(get_db)):
+    return await service.reply(db, review_id, user["restaurantId"], body.replyText)
 
 
 @router.post("/{review_id}/draft-reply")

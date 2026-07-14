@@ -9,6 +9,7 @@ from app.alerts.router import router as alerts_router
 from app.auth.router import router as auth_router
 from app.billing.router import router as billing_router
 from app.compliance.router import router as compliance_router
+from app.integrations.router import router as integrations_router
 from app.qr.router import router as qr_router
 from app.restaurants.router import router as restaurants_router
 from app.reviews.router import router as reviews_router
@@ -34,6 +35,7 @@ app.include_router(surveys_router)
 app.include_router(alerts_router)
 app.include_router(billing_router)
 app.include_router(compliance_router)
+app.include_router(integrations_router)
 app.include_router(qr_router)
 app.include_router(restaurants_router)
 

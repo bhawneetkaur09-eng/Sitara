@@ -72,6 +72,7 @@ export default function ReviewsPage() {
   const [sending, setSending] = useState(false);
   const [draftingId, setDraftingId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadReviews = useCallback(async () => {
     setLoading(true);
@@ -120,11 +121,22 @@ export default function ReviewsPage() {
 
   async function handleSync() {
     setSyncing(true);
+    setSyncMessage(null);
     try {
-      await api.reviews.sync();
+      const result = await api.reviews.sync();
+      setSyncMessage({
+        type: 'success',
+        text:
+          result.synced > 0
+            ? `Synced ${result.synced} review${result.synced === 1 ? '' : 's'} from Google.`
+            : 'Already up to date — no new reviews.',
+      });
       loadReviews();
     } catch (err) {
-      console.error('Failed to sync:', err);
+      setSyncMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to sync reviews.',
+      });
     } finally {
       setSyncing(false);
     }
@@ -158,6 +170,26 @@ export default function ReviewsPage() {
           </select>
         </div>
       </div>
+
+      {syncMessage && (
+        <div
+          className={`text-sm rounded-lg px-3 py-2 border ${
+            syncMessage.type === 'error'
+              ? 'bg-red-50 border-red-100 text-red-700'
+              : 'bg-emerald-50 border-emerald-100 text-emerald-700'
+          }`}
+        >
+          {syncMessage.text}
+          {syncMessage.type === 'error' && (
+            <>
+              {' '}
+              <a href="/dashboard/settings" className="font-medium underline">
+                Go to Settings
+              </a>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Source Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit flex-wrap">

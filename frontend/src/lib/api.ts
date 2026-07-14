@@ -113,7 +113,7 @@ export const api = {
     },
     stats: () => request<ReviewStats>('/api/reviews/stats'),
     reply: (id: string, replyText: string) =>
-      request<Review>(`/api/reviews/${id}/reply`, {
+      request<Review & { googleWarning?: string }>(`/api/reviews/${id}/reply`, {
         method: 'POST',
         body: JSON.stringify({ replyText }),
       }),
@@ -123,7 +123,7 @@ export const api = {
         { method: 'POST' },
       ),
     sync: () =>
-      request<{ synced: number; source: string; review: Review }>(
+      request<{ synced: number; created: number; updated: number; source: string }>(
         '/api/reviews/sync',
         { method: 'POST' },
       ),
@@ -173,6 +173,25 @@ export const api = {
       request<LocationInfo>('/api/restaurant/add-location', {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+  },
+  integrations: {
+    googleStatus: () =>
+      request<GoogleIntegrationStatus>('/api/integrations/google/status'),
+    connectGoogle: (returnTo: 'settings' | 'onboarding' = 'settings') =>
+      request<{ authUrl: string }>(
+        `/api/integrations/google/connect?return_to=${returnTo}`,
+      ),
+    googleLocations: () =>
+      request<{ locations: GoogleLocation[] }>('/api/integrations/google/locations'),
+    selectGoogleLocation: (locationName: string) =>
+      request<GoogleIntegrationStatus>('/api/integrations/google/select-location', {
+        method: 'POST',
+        body: JSON.stringify({ locationName }),
+      }),
+    disconnectGoogle: () =>
+      request<{ connected: boolean }>('/api/integrations/google/disconnect', {
+        method: 'POST',
       }),
   },
   qr: {
@@ -311,6 +330,20 @@ export interface SwitchLocationResult {
   userId: string;
   restaurantId: string;
   restaurant: LocationInfo;
+}
+
+export interface GoogleIntegrationStatus {
+  connected: boolean;
+  email: string | null;
+  locationName: string | null;
+  locationTitle: string | null;
+  lastSyncedAt: string | null;
+}
+
+export interface GoogleLocation {
+  accountName: string;
+  name: string;
+  title: string | null;
 }
 
 export interface RestaurantSettings {

@@ -9,12 +9,17 @@ import {
   Download,
   Smartphone,
   ExternalLink,
+  Link2,
+  CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import {
   api,
   type User,
   type QrData,
   type RestaurantSettings,
+  type GoogleIntegrationStatus,
+  type GoogleLocation,
 } from '@/lib/api';
 
 export default function SettingsPage() {
@@ -35,6 +40,27 @@ export default function SettingsPage() {
   const [savingOffer, setSavingOffer] = useState(false);
   const [offerSaved, setOfferSaved] = useState(false);
 
+  const [google, setGoogle] = useState<GoogleIntegrationStatus | null>(null);
+  const [googleLocations, setGoogleLocations] = useState<GoogleLocation[]>([]);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleNotice, setGoogleNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  async function loadGoogleStatus() {
+    try {
+      const status = await api.integrations.googleStatus();
+      setGoogle(status);
+      // Offer a picker only when connected but no location is chosen yet, or to switch.
+      if (status.connected) {
+        api.integrations
+          .googleLocations()
+          .then((r) => setGoogleLocations(r.locations))
+          .catch(() => {});
+      }
+    } catch {
+      setGoogle({ connected: false, email: null, locationName: null, locationTitle: null, lastSyncedAt: null });
+    }
+  }
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -49,6 +75,25 @@ export default function SettingsPage() {
       .finally(() => {
         if (!cancelled) setQrLoading(false);
       });
+    loadGoogleStatus();
+
+    // Surface the outcome of the OAuth redirect (?google=connected|error).
+    const params = new URLSearchParams(window.location.search);
+    const googleParam = params.get('google');
+    if (googleParam === 'connected') {
+      setGoogleNotice({ type: 'success', text: 'Google Business Profile connected.' });
+    } else if (googleParam === 'error') {
+      const reason = params.get('reason');
+      setGoogleNotice({
+        type: 'error',
+        text: reason
+          ? `Could not connect Google: ${reason}`
+          : 'Could not connect Google. Please try again.',
+      });
+    }
+    if (googleParam) {
+      window.history.replaceState({}, '', '/dashboard/settings');
+    }
     return () => {
       cancelled = true;
     };
@@ -104,6 +149,56 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleConnectGoogle() {
+    setGoogleBusy(true);
+    setGoogleNotice(null);
+    try {
+      const { authUrl } = await api.integrations.connectGoogle();
+      window.location.href = authUrl;
+    } catch (err) {
+      setGoogleNotice({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Could not start Google connection.',
+      });
+      setGoogleBusy(false);
+    }
+  }
+
+  async function handleSelectGoogleLocation(locationName: string) {
+    if (!locationName) return;
+    setGoogleBusy(true);
+    setGoogleNotice(null);
+    try {
+      const status = await api.integrations.selectGoogleLocation(locationName);
+      setGoogle(status);
+      setGoogleNotice({ type: 'success', text: 'Location linked.' });
+    } catch (err) {
+      setGoogleNotice({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Could not select location.',
+      });
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
+  async function handleDisconnectGoogle() {
+    setGoogleBusy(true);
+    setGoogleNotice(null);
+    try {
+      await api.integrations.disconnectGoogle();
+      setGoogle({ connected: false, email: null, locationName: null, locationTitle: null, lastSyncedAt: null });
+      setGoogleLocations([]);
+    } catch (err) {
+      setGoogleNotice({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Could not disconnect.',
+      });
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
   if (!user) return null;
 
   return (
@@ -140,6 +235,86 @@ export default function SettingsPage() {
             <span className="font-medium text-gray-900">{user.name}</span>
           </div>
         </div>
+      </div>
+
+      {/* Integrations — Google Business Profile */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <h3 className="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
+          <Link2 className="w-4 h-4 text-blue-600" />
+          Google Business Profile
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Connect your Google account to pull real Google reviews into your
+          dashboard and reply to them directly from here.
+        </p>
+
+        {googleNotice && (
+          <div
+            className={`text-xs rounded-lg px-3 py-2 mb-4 border ${
+              googleNotice.type === 'error'
+                ? 'bg-red-50 border-red-100 text-red-700'
+                : 'bg-emerald-50 border-emerald-100 text-emerald-700'
+            }`}
+          >
+            {googleNotice.text}
+          </div>
+        )}
+
+        {google?.connected ? (
+          <div className="space-y-4">
+            <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-emerald-800">
+                <p className="font-semibold">Connected{google.email ? ` as ${google.email}` : ''}</p>
+                {google.locationTitle ? (
+                  <p>Linked location: {google.locationTitle}</p>
+                ) : (
+                  <p>No location linked yet — pick one below.</p>
+                )}
+              </div>
+            </div>
+
+            {googleLocations.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  {google.locationName ? 'Switch location' : 'Choose a location to link'}
+                </label>
+                <select
+                  value={google.locationName ?? ''}
+                  onChange={(e) => handleSelectGoogleLocation(e.target.value)}
+                  disabled={googleBusy}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700"
+                >
+                  <option value="" disabled>
+                    Select a location…
+                  </option>
+                  {googleLocations.map((loc) => (
+                    <option key={loc.name} value={loc.name}>
+                      {loc.title || loc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button
+              onClick={handleDisconnectGoogle}
+              disabled={googleBusy}
+              className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50 cursor-pointer"
+            >
+              Disconnect Google
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleConnectGoogle}
+            disabled={googleBusy}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg transition cursor-pointer"
+          >
+            <Link2 className="w-4 h-4" />
+            {googleBusy ? 'Connecting…' : 'Connect Google Business Profile'}
+          </button>
+        )}
       </div>
 
       {/* QR Code for Feedback */}
